@@ -193,125 +193,288 @@ utils.playSound("rPhoneSelect")
 ```lua
 local TodoApp = {}
 
+-- Todo app configuration
+local TODO_CONFIG = {
+	name = "Todo List",
+	namevisible = false,
+	icon = "http://www.roblox.com/asset/?id=71935016681164",
+	iconColor = Color3.fromRGB(52, 152, 219),
+	description = "A simple todo list app",
+	id = "todo_app"
+}
+
+-- Create todo app
 function TodoApp.create(AppCreator, SharedState)
-    return AppCreator:RegisterApp({
-    name = "Todo List",
-    icon = "rbxasset://textures/ui/GuiImagePlaceholder.png", -- Replace with actual icon
-    iconColor = Color3.fromRGB(52, 152, 219),
-    onOpen = function(context)
-        local ui = context.ui
-        local state = context.state
-        local utils = context.utils
-        
-        -- Initialize state if it doesn't exist for this session
-        state.todos = state.todos or {}
-        
-        -- Main scrolling frame for todo items
-        local list = utils.createElement("ScrollingFrame", {
-            Size = UDim2.new(1, -20, 1, -80), -- Full width minus padding, height minus padding and input area
-            Position = UDim2.new(0, 10, 0, 10), -- 10px padding
-            BackgroundColor3 = Color3.fromRGB(40, 40, 40),
-            BorderSizePixel = 0,
-            ScrollBarThickness = 6
-        }, ui.content) -- Parent to the app's content area
-        
-        local listLayout = utils.createElement("UIListLayout", {
-            Padding = UDim.new(0, 5),
-            SortOrder = Enum.SortOrder.LayoutOrder
-        }, list)
-        
-        -- Input area at the bottom
-        local inputFrame = utils.createElement("Frame", {
-            Size = UDim2.new(1, -20, 0, 50), -- Full width minus padding, 50px height
-            Position = UDim2.new(0, 10, 1, -60), -- Positioned at the bottom with 10px padding
-            BackgroundTransparency = 1
-        }, ui.content)
-        
-        local input = utils.createTextBox("Add todo...", inputFrame)
-        input.Size = UDim2.new(1, -60, 1, 0) -- Width to leave space for add button
-        input.Position = UDim2.new(0, 0, 0, 0)
-        
-        -- Function to add a new todo item
-        local function addTodoItemToUI(todoData)
-            local todoFrame = utils.createElement("Frame", {
-                Size = UDim2.new(1, 0, 0, 40),
-                BackgroundColor3 = Color3.fromRGB(60, 60, 60),
-                BorderSizePixel = 0,
-                LayoutOrder = #state.todos -- For UIListLayout
-            }, list)
-            
-            local checkbox = utils.createButton(todoData.completed and "☑" or "☐", function()
-                todoData.completed = not todoData.completed
-                checkbox.Text = todoData.completed and "☑" or "☐"
-                checkbox.TextColor3 = todoData.completed 
-                    and Color3.fromRGB(100, 255, 100) 
-                    or Color3.fromRGB(255, 255, 255)
-            end, todoFrame)
-            checkbox.Size = UDim2.new(0, 40, 1, 0)
-            checkbox.BackgroundTransparency = 1
-            checkbox.TextSize = 24
-            
-            local todoLabel = utils.createLabel(todoData.text, todoFrame)
-            todoLabel.Position = UDim2.new(0, 45, 0, 0)
-            todoLabel.Size = UDim2.new(1, -90, 1, 0) -- Space for checkbox and delete button
-            todoLabel.TextXAlignment = Enum.TextXAlignment.Left
-            
-            local deleteBtn = utils.createButton("×", function()
-                todoFrame:Destroy()
-                for i, t in ipairs(state.todos) do
-                    if t.id == todoData.id then
-                        table.remove(state.todos, i)
-                        break
-                    end
-                end
-            end, todoFrame)
-            deleteBtn.Size = UDim2.new(0, 40, 1, 0)
-            deleteBtn.Position = UDim2.new(1, -40, 0, 0)
-            deleteBtn.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-        end
+	-- onOpen function - called when app opens
+	local function onOpen(context)
+		local ui = context.ui
+		local state = context.state
+		local utils = context.utils
 
-        -- Add todo logic
-        local function addTodoAction(text)
-            if text and text:match("%S") then -- Check for non-whitespace text
-                local newTodo = {
-                    text = text,
-                    completed = false,
-                    id = "Todo_" .. tostring(tick()) -- Unique ID for the todo
-                }
-                table.insert(state.todos, newTodo)
-                addTodoItemToUI(newTodo)
-                
-                input.Text = "" -- Clear input
-                utils.showNotification("Todo added!", 1.5)
-            end
-        end
-        
-        -- Add button
-        local addBtn = utils.createButton("+", function()
-            addTodoAction(input.Text)
-        end, inputFrame)
-        addBtn.Size = UDim2.new(0, 50, 1, 0) -- 50px wide
-        addBtn.Position = UDim2.new(1, -50, 0, 0) -- Positioned to the right of the input
-        
-        -- Handle 'Enter' key press on TextBox
-        utils.connect(input.FocusLost:Connect(function(enterPressed)
-            if enterPressed then
-                addTodoAction(input.Text)
-            end
-        end))
-        
-        -- Load and display existing todos from state
-        for _, existingTodoData in ipairs(state.todos) do
-            addTodoItemToUI(existingTodoData)
-        end
-    end,
+		-- Initialize todo state
+		state.todos = state.todos or {}
 
-    onClose = function(context)
-        -- state.todos is preserved automatically by AppCreator until app is fully closed
-        -- No specific cleanup needed here for this simple app, as connections are handled by utils.connect
-        print("Todo app closing. Current todos:", #context.state.todos)
-    end
-})
+		-- Create header frame
+		local headerFrame = utils.createElement("Frame", {
+			Name = "Header",
+			Size = UDim2.new(1, -20, 0, 60),
+			Position = UDim2.new(0, 10, 0, 10),
+			BackgroundColor3 = Color3.fromRGB(60, 60, 60),
+			BorderSizePixel = 0
+		}, ui.content)
+
+		local headerCorner = utils.createElement("UICorner", {
+			CornerRadius = UDim.new(0, 8)
+		}, headerFrame)
+
+		-- Input area in header
+		local input = utils.createElement("TextBox", {
+			Name = "TodoInput",
+			Size = UDim2.new(1, -70, 1, -20),
+			Position = UDim2.new(0, 10, 0, 10),
+			BackgroundColor3 = Color3.fromRGB(80, 80, 80),
+			BorderSizePixel = 0,
+			Text = "",
+			PlaceholderText = "Add todo...",
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			PlaceholderColor3 = Color3.fromRGB(150, 150, 150),
+			TextSize = 16,
+			Font = Enum.Font.SourceSans,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ClearTextOnFocus = false
+		}, headerFrame)
+
+		local inputCorner = utils.createElement("UICorner", {
+			CornerRadius = UDim.new(0, 6)
+		}, input)
+
+		-- Add button
+		local addBtn = utils.createElement("TextButton", {
+			Name = "AddButton",
+			Size = UDim2.new(0, 50, 1, -20),
+			Position = UDim2.new(1, -60, 0, 10),
+			BackgroundColor3 = Color3.fromRGB(52, 152, 219),
+			BorderSizePixel = 0,
+			Text = "+",
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			TextSize = 24,
+			Font = Enum.Font.SourceSansBold
+		}, headerFrame)
+
+		local addBtnCorner = utils.createElement("UICorner", {
+			CornerRadius = UDim.new(0, 6)
+		}, addBtn)
+
+		-- Todo list scrolling frame
+		local todoList = utils.createElement("ScrollingFrame", {
+			Name = "TodoList",
+			Size = UDim2.new(1, -20, 1, -90),
+			Position = UDim2.new(0, 10, 0, 80),
+			BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+			BorderSizePixel = 0,
+			ScrollBarThickness = 6,
+			ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100),
+			CanvasSize = UDim2.new(0, 0, 0, 0),
+			AutomaticCanvasSize = Enum.AutomaticSize.Y
+		}, ui.content)
+
+		local listCorner = utils.createElement("UICorner", {
+			CornerRadius = UDim.new(0, 8)
+		}, todoList)
+
+		local listLayout = utils.createElement("UIListLayout", {
+			Padding = UDim.new(0, 5),
+			SortOrder = Enum.SortOrder.LayoutOrder
+		}, todoList)
+
+		-- Store references
+		state.todoList = todoList
+		state.input = input
+
+		-- Helper function to create todo item
+		local function createTodoItem(todo)
+			local todoFrame = utils.createElement("Frame", {
+				Name = "TodoItem_" .. todo.id,
+				Size = UDim2.new(1, -10, 0, 50),
+				BackgroundColor3 = Color3.fromRGB(60, 60, 60),
+				BorderSizePixel = 0,
+				LayoutOrder = todo.id
+			}, todoList)
+
+			local todoCorner = utils.createElement("UICorner", {
+				CornerRadius = UDim.new(0, 6)
+			}, todoFrame)
+
+			-- Checkbox
+			local checkbox = utils.createElement("TextButton", {
+				Name = "Checkbox",
+				Size = UDim2.new(0, 40, 1, -10),
+				Position = UDim2.new(0, 5, 0, 5),
+				BackgroundTransparency = 1,
+				Text = todo.completed and "☑" or "☐",
+				TextColor3 = todo.completed and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 255, 255),
+				TextSize = 24,
+				Font = Enum.Font.SourceSansBold
+			}, todoFrame)
+
+			-- Todo text label
+			local todoLabel = utils.createElement("TextLabel", {
+				Name = "TodoText",
+				Size = UDim2.new(1, -100, 1, -10),
+				Position = UDim2.new(0, 50, 0, 5),
+				BackgroundTransparency = 1,
+				Text = todo.text,
+				TextColor3 = todo.completed and Color3.fromRGB(150, 150, 150) or Color3.fromRGB(255, 255, 255),
+				TextSize = 16,
+				Font = Enum.Font.SourceSans,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				TextStrokeTransparency = todo.completed and 0.5 or 1,
+				TextStrokeColor3 = Color3.fromRGB(150, 150, 150)
+			}, todoFrame)
+
+			-- Delete button
+			local deleteBtn = utils.createElement("TextButton", {
+				Name = "DeleteButton",
+				Size = UDim2.new(0, 40, 1, -10),
+				Position = UDim2.new(1, -45, 0, 5),
+				BackgroundColor3 = Color3.fromRGB(255, 85, 85),
+				BorderSizePixel = 0,
+				Text = "×",
+				TextColor3 = Color3.fromRGB(255, 255, 255),
+				TextSize = 20,
+				Font = Enum.Font.SourceSansBold
+			}, todoFrame)
+
+			local deleteBtnCorner = utils.createElement("UICorner", {
+				CornerRadius = UDim.new(0, 6)
+			}, deleteBtn)
+
+			-- Store todo reference in the frame for easy access
+			todoFrame:SetAttribute("TodoId", todo.id)
+
+			-- Checkbox functionality - Fixed to prevent nil reference
+			utils.connect(checkbox.Activated:Connect(function()
+				utils.playSound("rPhoneSelect")
+				
+				todo.completed = not todo.completed
+				
+				-- Update checkbox appearance
+				checkbox.Text = todo.completed and "☑" or "☐"
+				checkbox.TextColor3 = todo.completed and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 255, 255)
+				
+				-- Update text appearance
+				todoLabel.TextColor3 = todo.completed and Color3.fromRGB(150, 150, 150) or Color3.fromRGB(255, 255, 255)
+				todoLabel.TextStrokeTransparency = todo.completed and 0.5 or 1
+			end))
+
+			-- Delete functionality
+			utils.connect(deleteBtn.Activated:Connect(function()
+				utils.playSound("rPhoneSelect")
+				
+				-- Remove from state
+				for i, t in ipairs(state.todos) do
+					if t.id == todo.id then
+						table.remove(state.todos, i)
+						break
+					end
+				end
+				
+				-- Remove UI element
+				todoFrame:Destroy()
+				utils.showNotification("Todo deleted!", 1)
+			end))
+
+			-- Button hover effects
+			checkbox.MouseEnter:Connect(function()
+				utils.animate(checkbox, {
+					TextColor3 = checkbox.TextColor3:Lerp(Color3.new(1, 1, 1), 0.3)
+				}, 0.1)
+			end)
+
+			checkbox.MouseLeave:Connect(function()
+				checkbox.TextColor3 = todo.completed and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 255, 255)
+			end)
+
+			deleteBtn.MouseEnter:Connect(function()
+				utils.animate(deleteBtn, {
+					BackgroundColor3 = Color3.fromRGB(255, 120, 120)
+				}, 0.1)
+			end)
+
+			deleteBtn.MouseLeave:Connect(function()
+				utils.animate(deleteBtn, {
+					BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+				}, 0.1)
+			end)
+		end
+
+		-- Helper function to add todo
+		local function addTodo(text)
+			if text and text ~= "" and string.len(string.gsub(text, "%s", "")) > 0 then
+				utils.playSound("rPhoneSelect")
+				
+				local todo = {
+					text = text,
+					completed = false,
+					id = tick() * 1000 -- Use more precise timestamp
+				}
+				
+				table.insert(state.todos, todo)
+				createTodoItem(todo)
+				
+				input.Text = ""
+				utils.showNotification("Todo added!", 1)
+			end
+		end
+
+		-- Add button functionality
+		utils.connect(addBtn.Activated:Connect(function()
+			addTodo(input.Text)
+		end))
+
+		-- Enter key support
+		utils.connect(input.FocusLost:Connect(function(enterPressed)
+			if enterPressed then
+				addTodo(input.Text)
+			end
+		end))
+
+		-- Add button hover effect
+		addBtn.MouseEnter:Connect(function()
+			utils.animate(addBtn, {
+				BackgroundColor3 = Color3.fromRGB(72, 172, 239)
+			}, 0.1)
+		end)
+
+		addBtn.MouseLeave:Connect(function()
+			utils.animate(addBtn, {
+				BackgroundColor3 = Color3.fromRGB(52, 152, 219)
+			}, 0.1)
+		end)
+
+		-- Load existing todos
+		for _, todo in ipairs(state.todos) do
+			createTodoItem(todo)
+		end
+
+		-- Show welcome notification
+		if #state.todos == 0 then
+			utils.showNotification("Todo List opened! Add your first todo.", 2)
+		end
+	end
+
+	-- onClose function - called when app closes
+	local function onClose(context)
+		-- Clean up if needed
+		-- Save state is automatically handled by the framework
+	end
+
+	-- Register the todo app
+	TODO_CONFIG.onOpen = onOpen
+	TODO_CONFIG.onClose = onClose
+
+	return AppCreator:RegisterApp(TODO_CONFIG)
 end
 
 return TodoApp
